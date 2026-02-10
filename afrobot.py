@@ -101,11 +101,10 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global OWNER_ID
     message = update.message
     user = message.from_user
-    
-    # 🔥 Filtrage du canal lié
+
+    # Ignorer les messages provenant du canal lié
     if message.is_automatic_forward:
         return
-
 
     if OWNER_ID is None:
         OWNER_ID = user.id
@@ -167,7 +166,6 @@ async def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("top", top_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     media_filter = (
         filters.PHOTO |
@@ -176,6 +174,9 @@ async def main():
         filters.Document.VIDEO
     )
     application.add_handler(MessageHandler(media_filter, handle_media))
+
+    # Handler texte en dernier
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     await application.initialize()
     await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
