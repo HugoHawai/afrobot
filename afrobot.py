@@ -16,12 +16,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # ex: https://afrobot-wbuk.onrender.com
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 PORT = int(os.environ.get("PORT", "10000"))
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salut, je suis AFROBOT (webhook manuel PTB 21.6).")
+    await update.message.reply_text("Salut, je suis AFROBOT (webhook stable).")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -39,24 +39,34 @@ async def main():
     if not WEBHOOK_URL:
         raise SystemExit("WEBHOOK_URL manquant")
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(BOT_TOKEN).updater(None).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     await application.initialize()
+
     await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
 
     await application.start()
 
-    await application.updater.start_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path="webhook",
-    )
+    from aiohttp import web
 
-    await application.updater.idle()
+    async def handle(request):
+        data = await request.json()
+        await application.update_queue.put(Update.de_json(data, application.bot))
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/webhook", handle)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+
+    await application.shutdown()
 
 
 if __name__ == "__main__":
