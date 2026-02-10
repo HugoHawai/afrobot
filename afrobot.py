@@ -103,7 +103,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = message.from_user
     
     # 🔥 Filtrage du canal lié
-    if message.forward_from_chat and message.forward_from_chat.id == -1003680135433:
+    if message.is_automatic_forward:
         return
 
 
