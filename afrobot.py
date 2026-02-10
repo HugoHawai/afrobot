@@ -16,10 +16,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # ex: https://afrobot-wbuk.onrender.com
+PORT = int(os.environ.get("PORT", "10000"))
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salut, je suis AFROBOT (PTB 21.6, polling sans Updater).")
+    await update.message.reply_text("Salut, je suis AFROBOT (webhook PTB 21.6).")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -34,6 +36,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     if not BOT_TOKEN:
         raise SystemExit("BOT_TOKEN manquant")
+    if not WEBHOOK_URL:
+        raise SystemExit("WEBHOOK_URL manquant")
 
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -41,12 +45,17 @@ async def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-    # Mode polling SANS UPDATER
     await application.initialize()
+
     await application.start()
-    await application.run_polling()  # boucle interne propre
-    await application.stop()
-    await application.shutdown()
+
+    await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+
+    await application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path="webhook",
+    )
 
 
 if __name__ == "__main__":
