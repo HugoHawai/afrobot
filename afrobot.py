@@ -9,50 +9,47 @@ from telegram.ext import (
     filters,
 )
 
-# --- Logging propre ---
+# --- Logging ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# --- Récupération des variables d'environnement ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 
-# --- Handlers de base ---
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Salut, je suis AFROBOT (PTB 21.6, polling).")
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Commandes dispo : /start /help")
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
         await update.message.reply_text(f"Tu as dit : {update.message.text}")
 
 
-# --- Fonction principale ---
-
-async def main() -> None:
+async def main():
     if not BOT_TOKEN:
-        logger.error("La variable d'environnement BOT_TOKEN n'est pas définie.")
         raise SystemExit("BOT_TOKEN manquant")
 
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Ajout des handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-    # Lancement en polling (simple, robuste sur Render)
-    await application.run_polling()
+    # IMPORTANT : ne PAS utiliser asyncio.run()
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    await application.stop()
+    await application.shutdown()
 
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())
