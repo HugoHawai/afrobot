@@ -2,7 +2,6 @@ import os
 import logging
 import asyncio
 import json
-from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -24,64 +23,34 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 PORT = int(os.environ.get("PORT", "10000"))
 
 CONTRIB_FILE = "contributions.json"
-WEEKLY_FILE = "weekly.json"
-
 contributions = {}
-weekly = {}
 
 OWNER_ID = None
 
 
 # -----------------------------
-# JSON
+# Chargement / sauvegarde JSON
 # -----------------------------
 
-def load_json(path):
-    if os.path.exists(path):
+def load_contributions():
+    global contributions
+    if os.path.exists(CONTRIB_FILE):
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+            with open(CONTRIB_FILE, "r", encoding="utf-8") as f:
+                contributions = json.load(f)
+        except Exception as e:
+            logger.error(f"Erreur chargement JSON : {e}")
+            contributions = {}
+    else:
+        contributions = {}
 
 
-def save_json(path, data):
+def save_contributions():
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        with open(CONTRIB_FILE, "w", encoding="utf-8") as f:
+            json.dump(contributions, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        logger.error(f"Erreur sauvegarde JSON {path}: {e}")
-
-
-def load_all():
-    global contributions, weekly
-    contributions = load_json(CONTRIB_FILE)
-    weekly = load_json(WEEKLY_FILE)
-
-
-def save_all():
-    save_json(CONTRIB_FILE, contributions)
-    save_json(WEEKLY_FILE, weekly)
-
-
-# -----------------------------
-# Classement hebdomadaire
-# -----------------------------
-
-def monday_reset_if_needed():
-    global weekly
-    today = datetime.utcnow().date()
-    monday = today - timedelta(days=today.weekday())
-
-    if "last_reset" not in weekly:
-        weekly["last_reset"] = str(monday)
-        save_json(WEEKLY_FILE, weekly)
-        return
-
-    if weekly["last_reset"] != str(monday):
-        weekly = {"last_reset": str(monday)}
-        save_json(WEEKLY_FILE, weekly)
+        logger.error(f"Erreur sauvegarde JSON : {e}")
 
 
 # -----------------------------
@@ -95,60 +64,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Commandes : /start /help /top /me /reset /topweek")
-
-
-async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_user.id)
-    count = contributions.get(user_id, 0)
-    await update.message.reply_text(f"Tu as actuellement {count} contributions.")
-
-
-async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global contributions, weekly
-
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("Commande réservée à l’administrateur.")
-        return
-
-    contributions = {}
-    weekly = {"last_reset": str(datetime.utcnow().date())}
-    save_all()
-
-    await update.message.reply_text("Les contributions ont été réinitialisées.")
+    await update.message.reply_text("Commandes : /start /help /top")
 
 
 async def top_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not contributions:
-        await update.message.reply_text("Aucune contribution enregistrée.")
+        await update.message.reply_text("Aucune contribution enregistrée pour le moment.")
         return
 
     sorted_users = sorted(contributions.items(), key=lambda x: x[1], reverse=True)
-    lines = []
-
-    for user_id, count in sorted_users[:20]:
-        try:
-            user = await context.bot.get_chat(int(user_id))
-            name = user.first_name
-        except:
-            name = f"Utilisateur {user_id}"
-        lines.append(f"{name} — {count} contributions")
-
-    await update.message.reply_text("🏆 Classement général :\n\n" + "\n".join(lines))
-
-
-async def topweek_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    monday_reset_if_needed()
-
-    if len(weekly) <= 1:
-        await update.message.reply_text("Aucune contribution cette semaine.")
-        return
-
-    sorted_users = sorted(
-        [(uid, c) for uid, c in weekly.items() if uid != "last_reset"],
-        key=lambda x: x[1],
-        reverse=True
-    )
 
     lines = []
     for user_id, count in sorted_users[:20]:
@@ -157,9 +81,16 @@ async def topweek_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name = user.first_name
         except:
             name = f"Utilisateur {user_id}"
+
         lines.append(f"{name} — {count} contributions")
 
-    await update.message.reply_text("📅 Classement hebdomadaire :\n\n" + "\n".join(lines))
+    text = "🏆 Classement des contributeurs :\n\n" + "\n".join(lines)
+    await update.message.reply_text(text)
+
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message and update.message.text:
+        await update.message.reply_text(f"Tu as dit : {update.message.text}")
 
 
 # -----------------------------
@@ -175,51 +106,51 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         OWNER_ID = user.id
 
     user_id = str(user.id)
-
     contributions[user_id] = contributions.get(user_id, 0) + 1
-    weekly[user_id] = weekly.get(user_id, 0) + 1
+    count = contributions[user_id]
 
-    save_all()
+    save_contributions()
 
     try:
         if message.photo:
-            await context.bot.send_photo(chat_id=OWNER_ID, photo=message.photo[-1].file_id)
+            file_id = message.photo[-1].file_id
+            await context.bot.send_photo(chat_id=OWNER_ID, photo=file_id)
+
         elif message.video:
-            await context.bot.send_video(chat_id=OWNER_ID, video=message.video.file_id)
+            file_id = message.video.file_id
+            await context.bot.send_video(chat_id=OWNER_ID, video=file_id)
+
         elif message.animation:
-            await context.bot.send_animation(chat_id=OWNER_ID, animation=message.animation.file_id)
+            file_id = message.animation.file_id
+            await context.bot.send_animation(chat_id=OWNER_ID, animation=file_id)
+
         elif message.document and message.document.mime_type.startswith("video"):
-            await context.bot.send_document(chat_id=OWNER_ID, document=message.document.file_id)
+            file_id = message.document.file_id
+            await context.bot.send_document(chat_id=OWNER_ID, document=file_id)
+
     except Exception as e:
-        logger.error(f"Erreur transfert média : {e}")
+        logger.error(f"Erreur en envoyant le média : {e}")
 
     try:
         await message.delete()
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"Impossible de supprimer le message : {e}")
 
-    await context.bot.send_message(
-        chat_id=message.chat_id,
-        text=f"Merci {user.first_name} pour ta {contributions[user_id]}ᵉ contribution 🙏"
-    )
-
-
-# -----------------------------
-# Handler texte (DOIT ÊTRE LE DERNIER)
-# -----------------------------
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message and update.message.text:
-        await update.message.reply_text(f"Tu as dit : {update.message.text}")
+    try:
+        await context.bot.send_message(
+            chat_id=message.chat_id,
+            text=f"Merci {user.first_name} pour ta {count}ᵉ contribution 🙏"
+        )
+    except Exception as e:
+        logger.error(f"Erreur en envoyant le message de remerciement : {e}")
 
 
 # -----------------------------
-# Webhook
+# Webhook + serveur aiohttp
 # -----------------------------
 
 async def main():
-    load_all()
-    monday_reset_if_needed()
+    load_contributions()
 
     if not BOT_TOKEN:
         raise SystemExit("BOT_TOKEN manquant")
@@ -230,10 +161,8 @@ async def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("me", me_command))
-    application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("top", top_command))
-    application.add_handler(CommandHandler("topweek", topweek_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     media_filter = (
         filters.PHOTO |
@@ -242,8 +171,6 @@ async def main():
         filters.Document.VIDEO
     )
     application.add_handler(MessageHandler(media_filter, handle_media))
-
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     await application.initialize()
     await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
