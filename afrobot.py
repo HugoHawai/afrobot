@@ -101,6 +101,10 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global OWNER_ID
     message = update.message
     user = message.from_user
+    
+    # Ignorer les messages provenant du canal lié
+if message.forward_from_chat and message.forward_from_chat.id == -1003680135433:
+    return
 
     # Ignorer les messages automatiques provenant du canal lié
     if message.is_automatic_forward:
