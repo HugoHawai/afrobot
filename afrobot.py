@@ -101,10 +101,11 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global OWNER_ID
     message = update.message
     user = message.from_user
-
+    
     # 🔥 Filtrage du canal lié
     if message.forward_from_chat and message.forward_from_chat.id == -1003680135433:
         return
+
 
     if OWNER_ID is None:
         OWNER_ID = user.id
