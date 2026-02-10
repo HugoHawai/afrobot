@@ -205,6 +205,15 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # -----------------------------
+# Handler texte (DOIT ÊTRE LE DERNIER)
+# -----------------------------
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message and update.message.text:
+        await update.message.reply_text(f"Tu as dit : {update.message.text}")
+
+
+# -----------------------------
 # Webhook
 # -----------------------------
 
@@ -225,7 +234,6 @@ async def main():
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("top", top_command))
     application.add_handler(CommandHandler("topweek", topweek_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     media_filter = (
         filters.PHOTO |
@@ -234,6 +242,8 @@ async def main():
         filters.Document.VIDEO
     )
     application.add_handler(MessageHandler(media_filter, handle_media))
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     await application.initialize()
     await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
