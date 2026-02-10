@@ -1,6 +1,11 @@
 services:
   - type: web
     name: afrobot
-    env: python
+    runtime: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python afrobot.py"
+    envVars:
+      BOT_TOKEN:
+        sync: false
+      WEBHOOK_URL:
+        sync: false
