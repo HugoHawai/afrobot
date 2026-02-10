@@ -102,48 +102,41 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     user = message.from_user
 
+    # Ignorer les messages automatiques provenant du canal lié
+    if message.is_automatic_forward:
+        return
+
     if OWNER_ID is None:
         OWNER_ID = user.id
 
     user_id = str(user.id)
-    contributions[user_id] = contributions.get(user_id, 0) + 1
-    count = contributions[user_id]
 
-    save_contributions()
+    contributions[user_id] = contributions.get(user_id, 0) + 1
+    weekly[user_id] = weekly.get(user_id, 0) + 1
+
+    save_all()
 
     try:
         if message.photo:
-            file_id = message.photo[-1].file_id
-            await context.bot.send_photo(chat_id=OWNER_ID, photo=file_id)
-
+            await context.bot.send_photo(chat_id=OWNER_ID, photo=message.photo[-1].file_id)
         elif message.video:
-            file_id = message.video.file_id
-            await context.bot.send_video(chat_id=OWNER_ID, video=file_id)
-
+            await context.bot.send_video(chat_id=OWNER_ID, video=message.video.file_id)
         elif message.animation:
-            file_id = message.animation.file_id
-            await context.bot.send_animation(chat_id=OWNER_ID, animation=file_id)
-
+            await context.bot.send_animation(chat_id=OWNER_ID, animation=message.animation.file_id)
         elif message.document and message.document.mime_type.startswith("video"):
-            file_id = message.document.file_id
-            await context.bot.send_document(chat_id=OWNER_ID, document=file_id)
-
+            await context.bot.send_document(chat_id=OWNER_ID, document=message.document.file_id)
     except Exception as e:
-        logger.error(f"Erreur en envoyant le média : {e}")
+        logger.error(f"Erreur transfert média : {e}")
 
     try:
         await message.delete()
-    except Exception as e:
-        logger.error(f"Impossible de supprimer le message : {e}")
+    except:
+        pass
 
-    try:
-        await context.bot.send_message(
-            chat_id=message.chat_id,
-            text=f"Merci {user.first_name} pour ta {count}ᵉ contribution 🙏"
-        )
-    except Exception as e:
-        logger.error(f"Erreur en envoyant le message de remerciement : {e}")
-
+    await context.bot.send_message(
+        chat_id=message.chat_id,
+        text=f"Merci {user.first_name} pour ta {contributions[user_id]}ᵉ contribution 🙏"
+    )
 
 # -----------------------------
 # Webhook + serveur aiohttp
