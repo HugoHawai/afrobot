@@ -21,7 +21,7 @@ PORT = int(os.environ.get("PORT", "10000"))
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salut, je suis AFROBOT (webhook PTB 21.6).")
+    await update.message.reply_text("Salut, je suis AFROBOT (webhook manuel PTB 21.6).")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,16 +46,17 @@ async def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     await application.initialize()
+    await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
 
     await application.start()
 
-    await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-
-    await application.run_webhook(
+    await application.updater.start_webhook(
         listen="0.0.0.0",
         port=PORT,
         url_path="webhook",
     )
+
+    await application.updater.idle()
 
 
 if __name__ == "__main__":
