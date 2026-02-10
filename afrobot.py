@@ -8,6 +8,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+from aiohttp import web
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -51,11 +52,10 @@ async def main():
 
     await application.start()
 
-    from aiohttp import web
-
     async def handle(request):
         data = await request.json()
-        await application.update_queue.put(Update.de_json(data, application.bot))
+        update = Update.de_json(data, application.bot)
+        await application.update_queue.put(update)
         return web.Response()
 
     app = web.Application()
@@ -66,7 +66,9 @@ async def main():
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
-    await application.shutdown()
+    # NE RIEN FERMER : laisser tourner
+    while True:
+        await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":
