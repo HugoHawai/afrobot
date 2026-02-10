@@ -9,7 +9,6 @@ from telegram.ext import (
     filters,
 )
 
-# --- Logging ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -20,7 +19,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salut, je suis AFROBOT (PTB 21.6, polling).")
+    await update.message.reply_text("Salut, je suis AFROBOT (PTB 21.6, polling sans Updater).")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -42,14 +41,14 @@ async def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-    # IMPORTANT : ne PAS utiliser asyncio.run()
+    # Mode polling SANS UPDATER
     await application.initialize()
     await application.start()
-    await application.updater.start_polling()
+    await application.run_polling()  # boucle interne propre
     await application.stop()
     await application.shutdown()
 
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
